@@ -1,0 +1,5 @@
+objects/
+executables/
+.code/
+.git/
+.idea/
