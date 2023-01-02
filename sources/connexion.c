@@ -10,25 +10,86 @@ liste_clients_t *creer_liste_clients()
     }
 
     l->nb_clients = 0;
+    pthread_mutex_init(&(l->mutex_acces), NULL);
     return l;
 }
 
-int index_client(liste_clients_t *l, pid_t client)
+liste_clients_t init_liste_clients()
+{
+    liste_clients_t liste;
+    liste.nb_clients = 0;
+    pthread_mutex_init(&(liste.mutex_acces), NULL);
+    return liste;
+}
+
+client_t * creer_client(pid_t pid, char *nom)
+{
+    if (nom == NULL)
+    {
+        printf("Erreur : impossible de créer un client avec un nom NULL !\n");
+        return NULL;
+    }
+
+    if (strlen(nom) >= MAX_NOM_CLIENT)
+    {
+        printf("Erreur : Nom du client trop long !\n");
+        return NULL;
+    }
+
+    client_t * c = (client_t *)malloc(sizeof(client_t));
+    if (c == NULL)
+    {
+        printf("Erreur : L'allocation de mémoire pour la création d'un client a échoué !\n");
+        return NULL;
+    }
+
+    c->pid = pid;
+    strcpy(c->nom, nom);
+    return c;
+}
+
+client_t init_client(pid_t pid, char *nom)
+{
+    client_t client;
+
+    if (nom == NULL)
+    {
+        printf("Erreur : impossible de créer un client avec un nom NULL !\n");
+        return client;
+    }
+
+    if (strlen(nom) >= MAX_NOM_CLIENT)
+    {
+        printf("Erreur : Nom du client trop long !\n");
+        return client;
+    }
+
+    client.pid = pid;
+    strcpy(client.nom, nom);
+    return client;
+}
+
+int index_client(liste_clients_t *l, pid_t pid_client)
 {
     if (l == NULL)
     {
         printf("Erreur : Impossible de trouver un client dans une liste nulle !\n");
-        return -1;
+        return -2;
     }
-    
-    for (unsigned int i = 0; i < l->nb_clients; i++)
-        if (l->clients[i] == client)
-            return i;
 
+    pthread_mutex_lock(&(l->mutex_acces));
+    for (unsigned int i = 0; i < l->nb_clients; i++)
+        if (l->clients[i].pid == pid_client)
+        {
+            pthread_mutex_unlock(&(l->mutex_acces));
+            return i;
+        }
+
+    pthread_mutex_unlock(&(l->mutex_acces));
     return -1;
 }
 
-int ajouter_client(liste_clients_t *l, pid_t client)
+int ajouter_client(liste_clients_t *l, client_t client)
 {
     if (l == NULL)
     {
@@ -42,17 +103,18 @@ int ajouter_client(liste_clients_t *l, pid_t client)
         return -1;
     }
 
-    if (index_client(l, client) != -1)
+    if (index_client(l, client.pid) != -1)
     {
         printf("Erreur : Ajout d'un client se trouvant déjà dans la liste\n");
         return -1;
     }
-
+    pthread_mutex_lock(&(l->mutex_acces));
     l->clients[l->nb_clients++] = client;
+    pthread_mutex_unlock(&(l->mutex_acces));
     return 0;
 }
 
-int retirer_client(liste_clients_t *l, pid_t client)
+int retirer_client(liste_clients_t *l, client_t client)
 {
     if (l == NULL)
     {
@@ -60,11 +122,13 @@ int retirer_client(liste_clients_t *l, pid_t client)
         return -1;
     }
 
-    int index = index_client(l, client);
-    if (index == -1)
+    int index = index_client(l, client.pid);
+    if (index < 0)
         return -1;
 
+    pthread_mutex_lock(&(l->mutex_acces));
     l->clients[index] = l->clients[--l->nb_clients];
+    pthread_mutex_unlock(&(l->mutex_acces));
     return 0;
 }
 
@@ -78,16 +142,20 @@ int afficher_liste_clients(liste_clients_t *l)
 
     printf("Liste de clients (%d):\n", l->nb_clients);
 
+    pthread_mutex_lock(&(l->mutex_acces));
     for (unsigned int i = 0; i < l->nb_clients; i++)
-        printf("%d\n", l->clients[i]);
-
+    {
+        printf("%d\n", l->clients[i].pid);
+        printf("%s\n", l->clients[i].nom);
+    }   
+    pthread_mutex_unlock(&(l->mutex_acces));
     printf("\n");
     return 0;
 }
 
 int lire_demande_connexion(int id_bal, liste_clients_t *liste_clients)
 {
-    // Est ce que la bal est valide
+    // Est ce que la bal est valide ?
     if (id_bal == -1)
     {
         printf("Erreur : Impossible de lire une demande de connexion d'une bal avec un id = -1\n");
@@ -104,9 +172,17 @@ int lire_demande_connexion(int id_bal, liste_clients_t *liste_clients)
         return -1;
     }
 
+    // Créer le client à partir des infos reçus
+    client_t *c = creer_client(demande.mtext.pid, demande.mtext.nom);
+    if (c == NULL)
+    {
+        printf("Erreur dans la création du client !\n");
+        return -1;
+    }
+
     // Ajout du client dans la liste de clients
-    int resAjout = ajouter_client(liste_clients, demande.mtext.pid);
- 
+    int resAjout = ajouter_client(liste_clients, *c);
+
     // On envoie une réponse au client sur le type = pid client
     demande_connexion_t reponse;
     reponse.mtype = demande.mtext.pid;
@@ -120,7 +196,7 @@ int lire_demande_connexion(int id_bal, liste_clients_t *liste_clients)
     return resEcr;
 }
 
-int envoyer_demande_connexion(int id_bal)
+int envoyer_demande_connexion(int id_bal, char *nom)
 {
     if (id_bal == -1)
     {
@@ -128,9 +204,22 @@ int envoyer_demande_connexion(int id_bal)
         return -1;
     }
 
+    if (nom == NULL)
+    {
+        printf("Erreur : Impossible d'envoyer une demande de connexion sans un nom de joueur !\n");
+        return -1;
+    }
+
+    if (strlen(nom) >= MAX_NOM_CLIENT)
+    {
+        printf("Erreur : Impossible d'envoyer une demande de connexion avec un nom aussi long !\n");
+        return -1;
+    }
+
     demande_connexion_t demande;
     demande.mtype = 2;
     demande.mtext.pid = getpid();
+    strcpy(demande.mtext.nom, nom);
 
     int resEcr = ecrire_bal(id_bal, &demande, sizeof(msg_demande_connexion_t));
     if (resEcr == -1)
@@ -148,7 +237,7 @@ int envoyer_demande_connexion(int id_bal)
         return -1;
     }
 
-    if(strcmp(reponse.mtext.message, "OK") == 0)
+    if (strcmp(reponse.mtext.message, "OK") == 0)
         return 0;
 
     return -1;

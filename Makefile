@@ -1,7 +1,7 @@
 CC=gcc
 OPTS=-Wall -Wextra -lpthread -I./includes -lpthread
 
-all: executables/test_serveur.exe executables/test_client.exe
+all: executables/serveur.exe executables/client.exe executables/test.exe
 
 objects/connexion.o: sources/connexion.c
 	$(CC) $^ -c -o $@ $(OPTS)
@@ -9,16 +9,19 @@ objects/connexion.o: sources/connexion.c
 objects/bal.o: sources/bal.c
 	$(CC) $^ -c -o $@ $(OPTS)
 
-executables/test_serveur.exe: sources/test_serveur.c objects/bal.o objects/connexion.o
+objects/joueur.o: sources/joueur.c
+	$(CC) $^ -c -o $@ $(OPTS)
+
+objects/partie.o: sources/partie.c
+	$(CC) $^ -c -o $@ $(OPTS)
+
+executables/serveur.exe: sources/serveur.c objects/bal.o objects/connexion.o objects/joueur.o objects/partie.o
 	$(CC) $^ -o $@ $(OPTS)
 
-executables/test_client.exe: sources/test_client.c objects/bal.o objects/connexion.o
+executables/client.exe: sources/client.c objects/bal.o objects/connexion.o objects/joueur.o objects/partie.o
 	$(CC) $^ -o $@ $(OPTS)
 
-executables/serv.exe: sources/serveur.c
-	$(CC) $^ -o $@ $(OPTS)
-
-executables/cli.exe: sources/client.c
+executables/test.exe: sources/test.c objects/bal.o objects/connexion.o objects/joueur.o objects/partie.o
 	$(CC) $^ -o $@ $(OPTS)
 
 clean:

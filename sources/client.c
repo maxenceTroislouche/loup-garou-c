@@ -1,187 +1,55 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/msg.h>
-#include <string.h>
-#include <assert.h>
-#include <unistd.h>
-#include <pthread.h>
+/*
+Liste des types :
+    - 2 : Demande de connexion (fait)
+    - PID Client : Réponse de connexion + réception des infos serveur (liste_joueurs, état_partie)
+    - 3 : Ecriture dans le tchat villageois
+    - 4 : Ecriture dans le tchat LG
+    - 5 : Ecriture vote villageois
+    - 6 : Ecriture vote LG
+    - 7 : Ecriture vote voyante
+    - 11 à 30 : Lecture dans le tchat villageois
+    - 31 à 40 : Lecture dans le tchat LG
+    - 41 à 60 : Lecture réponse vote villageois
+    - 61 à 70 : Lecture réponse vote LG
+    - 100 : Lecture réponse vote voyante
+ */
 
-#define MAX_CHAR 500
+#include <bal.h>
+#include <connexion.h>
 
-typedef struct msg_content
+int main()
 {
-    char texte[MAX_CHAR];
-    pid_t pid;
-}msg_content_t;
+    // Affichage du pid du client
+    printf("Mon PID : %d\n", getpid());
 
-typedef struct msg
-{
-    long mtype;
-    msg_content_t mtext;
-}msg_t;
-
-int creerBoite(key_t clef);
-void afficherInfosBoite(int idBoite);
-int supprimerBoite(int idBoite);
-int ecrireMessageBoite(int idBoite, msg_t * message);
-int lireMessageBoite(int idBoite, msg_t * message_lu, long type);
-
-int main(int argc, char **argv)
-{
-    /**
-     * TODO :
-     * - Crée la boite aux lettres
-     * - Affiche la clé de la boite
-     * - Client écrit type 10, PID, nom de joueur
-     * - Serveur renvoie en type 1 l'état de la partie: avec les types ou les clients doivent écrire
-     */
-    (void) argc;
-    (void) argv;
+    // On demande la clef à l'utilisateur
     key_t clef;
-
-    printf("Quel est la clé de la boite ?\n");
+    printf("Quelle est la clef de la bal ?\n");
     scanf("%d", &clef);
 
-    int id = creerBoite(clef);
-    assert(id != -1);
+    // Création de la bal
+    int id_bal = creer_bal(clef);
+    assert(id_bal != -1);
 
-    printf("Connecté à la boite aux lettres : %d\n", id);
+    // Afficher les infos de la bal
+    //afficher_infos_bal(id_bal);
 
-    msg_t message_a_envoyer;
+    char nom[MAX_NOM_CLIENT];
 
-    message_a_envoyer.mtype = 10;
-    message_a_envoyer.mtext.pid = getpid();
-    strcpy(message_a_envoyer.mtext.texte, "CONNEXION ?");
+    printf("Quel est votre nom ?\n");
+    getchar();
+    fgets(nom, MAX_NOM_CLIENT, stdin);
 
-    int resEcriture = ecrireMessageBoite(id, &message_a_envoyer);
-    assert(resEcriture != -1);
+    printf("Votre nom est %s\n", nom);
 
-    msg_t message_a_lire;
-
-    int resLecture = lireMessageBoite(id, &message_a_lire, getpid());
-    assert(resLecture != -1);
-
-    if (strcmp(message_a_lire.mtext.texte, "OK") == 0)
+    // Envoi de la demande de connexion
+    int resEnv = envoyer_demande_connexion(id_bal, nom);
+    if (resEnv == -1)
     {
-        printf("Connexion réussie !");
+        printf("La partie est pleine !\n");
+        return 1;
     }
-    else
-    {
-        printf("Echec de la connexion : %s\n", message_a_lire.mtext.texte);
-    }
-
-    return 0;
-}
-
-/**
- * Permet de créer une boite aux lettres à partir d'une clé
- * \param clef clé à utiliser pour créer la boite
- * \return -1 si erreur, msg_id sinon
- */
-int creerBoite(key_t clef)
-{
-    int idBoite = msgget(clef, (IPC_CREAT|0660));
-    if (idBoite == -1)
-    {
-        printf("Erreur : lors de la création de la boite aux lettres !\n");
-        perror("Erreur perror");
-        return -1;
-    }
-    printf("Boite aux lettres créée avec l'id : %d\n", idBoite);
-    return idBoite;
-}
-
-/**
- * Permet d'afficher les informations d'une boite
- * \param idBoite msg_id de la boite
- */
-void afficherInfosBoite(int idBoite)
-{
-    struct msqid_ds infosBoite;
-    int returnValue = msgctl(idBoite, IPC_STAT, &infosBoite);
-    if (returnValue == -1)
-    {
-        printf("Erreur : lors de la récupération des informations de la boite !\n");
-        perror("Erreur perror");
-        return;
-    }
-    printf("Affichage des informations de la boite : %d\n", idBoite);
-    printf("Clé associée : %d\n", infosBoite.msg_perm.__key);
-    printf("UID Propriétaire : %d\n", infosBoite.msg_perm.uid);
-    printf("GID Propriétaire : %d\n", infosBoite.msg_perm.gid);
-    printf("UID Créateur : %d\n", infosBoite.msg_perm.cuid);
-    printf("GID Créateur : %d\n", infosBoite.msg_perm.cgid);
-    printf("Mode : %d\n", infosBoite.msg_perm.mode);
-    printf("Seq : %d\n", infosBoite.msg_perm.__seq);
-    printf("ctime : %ld\n", infosBoite.msg_ctime);
-    printf("lrpid : %d\n", infosBoite.msg_lrpid);
-    printf("lspid : %d\n", infosBoite.msg_lspid);
-    printf("qbytes : %ld\n", infosBoite.msg_qbytes);
-    printf("qnum : %ld\n", infosBoite.msg_qnum);
-    printf("rtime : %ld\n", infosBoite.msg_rtime);
-    printf("stime : %ld\n", infosBoite.msg_stime);
-}
-
-/**
- * Permet de supprimer une boite aux lettres
- * \param idBoite msg_id de la boite
- * \return -1 si erreur, 0 sinon
- */
-int supprimerBoite(int idBoite)
-{
-    int returnValue = msgctl(idBoite, IPC_RMID, NULL);
-    if (returnValue == -1)
-    {
-        printf("Erreur : lors de la suppression de la boite aux lettre !\n");
-        perror("Erreur perror");
-        return -1;
-    }
-    printf("Boite supprimée !\n");
-    return 0;
-}
-
-/**
- * Permet d'envoyer un message dans une boite aux lettres
- * \param idBoite msg_id de la boite
- * \param message message à envoyer
- * \return -1 si erreur, 0 sinon
- */
-int ecrireMessageBoite(int idBoite, msg_t * message)
-{
-    if (message == NULL)
-    {
-        printf("Erreur ecrireMessageBoite : Pas de message à envoyer !\n");
-        return -1;
-    }
-
-    int resMsgsnd = msgsnd(idBoite, message, sizeof(msg_t), 0);
-    if (resMsgsnd == -1)
-    {
-        printf("Erreur lors de l'envoi du message !\n");
-        perror("Erreur perror");
-        return -1;
-    }
-    printf("Message envoyé !\n");
-    return 0;
-}
-
-/**
- * Permet de lire un message dans la boite aux lettres
- * @param idBoite msg_id de la boite
- * @param message_lu structure qui va contenir le message lu
- * @return -1 si erreur, 0 sinon
- */
-int lireMessageBoite(int idBoite, msg_t * message_lu, long type)
-{
-    int resMsgrcv = msgrcv(idBoite, message_lu, sizeof(msg_t), type, 0);
-    if (resMsgrcv == -1)
-    {
-        printf("Erreur lors de la réception du message\n");
-        perror("Erreur perror");
-        return -1;
-    }
-    printf("Lecture réussie !\n");
+    
+    printf("Connexion réussie !\n");
     return 0;
 }
