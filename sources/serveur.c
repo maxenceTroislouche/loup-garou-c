@@ -16,16 +16,19 @@ Liste des types :
 
 #include <bal.h>
 #include <connexion.h>
+#include <joueur.h>
+#include <partie.h>
 
 void *gerer_connexions(void *liste_clients);
+
+pthread_mutex_t mutex_partie_pleine = PTHREAD_MUTEX_INITIALIZER;
 
 int main()
 {
     srand(time(NULL));
 
     // Création de la liste de clients
-    liste_clients_t *liste_clients = creer_liste_clients();
-    assert(liste_clients != NULL);
+    liste_clients_t liste_clients = init_liste_clients();
 
     // Génération de la clef
     key_t clef = generer_clef_bal();
@@ -38,10 +41,27 @@ int main()
     // On affiche la clé de la bal
     printf("Clef de la boite aux lettres : %d\n", clef);
 
+    pthread_mutex_lock(&mutex_partie_pleine);
+
     // Thread permettant de gérer la connexion des utilisateurs
     pthread_t thread_connexion;
-    pthread_create(&thread_connexion, NULL, gerer_connexions, liste_clients);
-    pthread_join(thread_connexion, NULL);
+    pthread_create(&thread_connexion, NULL, gerer_connexions, &liste_clients);
+
+    pthread_mutex_lock(&mutex_partie_pleine);
+
+    printf("Partie pleine, on peut commencer !\n");
+
+    // On crée la partie
+    roles_disponibles_t roles_disponibles = init_liste_roles_disponibles();
+    types_disponibles_t types_disponibles = init_types_disponibles();
+    partie_t partie = creer_partie();
+    afficher_partie(&partie);
+
+    ajouter_joueurs(&partie.liste_joueurs, &liste_clients, &roles_disponibles, &types_disponibles);
+
+    afficher_partie(&partie);
+
+    // On envoie les infos aux joueurs
 
     // Suppression de la bal
     int resSupp = supprimer_bal(id_bal);
@@ -54,12 +74,18 @@ void *gerer_connexions(void *liste_clients)
 {
     liste_clients_t *l = (liste_clients_t *)liste_clients;
     int resLec;
+    int nbJoueurs = 0;
     while (1)
     {
         resLec = lire_demande_connexion(creer_bal(generer_clef_bal()), l);
         assert(resLec != -1);
 
         printf("Connexion réussie !\n");
+
+        nbJoueurs++;
+
+        if (nbJoueurs == MAX_CLIENTS)
+            pthread_mutex_unlock(&mutex_partie_pleine);
 
         afficher_liste_clients(liste_clients);
     }

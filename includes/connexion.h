@@ -19,11 +19,6 @@ typedef struct client
 {
     pid_t pid;
     char nom[MAX_NOM_CLIENT];
-    int type_tchat_villageois;
-    int type_tchat_lg;
-    int type_vote_villageois;
-    int type_vote_lg;
-    int type_vote_voyante;
 } client_t;
 
 typedef struct liste_clients

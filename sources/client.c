@@ -17,6 +17,8 @@ Liste des types :
 #include <bal.h>
 #include <connexion.h>
 
+pthread_mutex_t mutex_partie_commence = PTHREAD_MUTEX_INITIALIZER;
+
 int main()
 {
     // Affichage du pid du client
@@ -50,6 +52,11 @@ int main()
         return 1;
     }
     
+    pthread_mutex_lock(&mutex_partie_commence);
+
     printf("Connexion réussie !\n");
+
+    pthread_mutex_lock(&mutex_partie_commence);
+
     return 0;
 }

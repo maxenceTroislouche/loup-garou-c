@@ -150,30 +150,56 @@ joueur_t * creer_joueur(client_t *client, roles_disponibles_t *roles_disponibles
     return joueur;
 }
 
-joueur_t init_joueur(client *client, roles_disponibles_t *roles_disponibles)
+joueur_t init_joueur(client_t *client, roles_disponibles_t *roles_disponibles, types_disponibles_t *types_disponibles)
 {
+    joueur_t joueur;
+
     if (client == NULL)
     {
         printf("Erreur : Impossible de créer un joueur ayant un client NULL !\n");
-        return NULL;
+        return joueur;
     }
 
     if (roles_disponibles == NULL)
     {
         printf("Erreur : Impossible de créer un joueur avec une liste de roles disponibles nulle !\n");
-        return NULL;
+        return joueur;
+    }
+
+    if (types_disponibles == NULL)
+    {
+        printf("Erreur : Impossible de créer un joueurs avec une liste de types disponibles nulle !\n");
+        return joueur;
     }
 
     role_t role = recuperer_role(roles_disponibles);
     if (est_role_null(&role) == 0)
     {
         printf("Erreur : Impossible de créer un joueur avec un role null !\n");
-        return NULL;
+        return joueur;
     }
 
-    joueur_t joueur;
     joueur.client = *client;
     joueur.role = role;
+
+    joueur.type_tchat_villageois = types_disponibles->types_tchat_villageois[--types_disponibles->nb_types_tchat_villageois_restants];
+    joueur.type_vote_villageois = types_disponibles->types_votes_villageois[--types_disponibles->nb_types_votes_villageois_restants];
+
+    if (role.num == ROLE_LG)
+    {
+        joueur.type_tchat_lg = types_disponibles->types_tchat_lg[--types_disponibles->nb_types_tchat_lg_restants];
+        joueur.type_vote_lg = types_disponibles->types_votes_lg[--types_disponibles->nb_types_votes_lg_restants];
+    }
+    else
+    {
+        joueur.type_tchat_lg = -1;
+        joueur.type_vote_lg = -1;
+    }
+    if (role.num == ROLE_VOYANTE)
+        joueur.type_vote_voyante = types_disponibles->types_vote_voyante[--types_disponibles->nb_types_votes_voyante_restants];
+    else
+        joueur.type_vote_voyante = -1;
+
     joueur.est_vivant = 0;
     return joueur;
 }
@@ -187,6 +213,7 @@ int afficher_joueur(joueur_t *joueur)
     }
 
     printf("PID : %d / Nom : %s / Role : %s / Est vivant : %d\n", joueur->client.pid, joueur->client.nom, joueur->role.nom, joueur->est_vivant);
+    printf("Type tchat villageois : %d / Type tchat lg : %d / Type vote villageois : %d / Type vote lg %d / Type vote voyante : %d\n", joueur->type_tchat_villageois, joueur->type_tchat_lg, joueur->type_vote_villageois, joueur->type_vote_lg, joueur->type_vote_voyante);
     return 0;
 }
 
@@ -293,7 +320,7 @@ int retirer_joueur(liste_joueurs_t *liste_joueurs, joueur_t *joueur)
     return 0;
 }
 
-int ajouter_joueurs(liste_joueurs_t *liste_joueurs, liste_clients_t *liste_clients, roles_disponibles_t *roles_disponibles)
+int ajouter_joueurs(liste_joueurs_t *liste_joueurs, liste_clients_t *liste_clients, roles_disponibles_t *roles_disponibles, types_disponibles_t *types_disponibles)
 {
     if (liste_joueurs == NULL)
     {
@@ -313,12 +340,12 @@ int ajouter_joueurs(liste_joueurs_t *liste_joueurs, liste_clients_t *liste_clien
         return -1;
     }
 
-    joueur_t *j;
+    joueur_t j;
 
     for (unsigned int i = 0; i < liste_clients->nb_clients; i++)
     {
-        j = creer_joueur(&liste_clients->clients[i], roles_disponibles);
-        ajouter_joueur(liste_joueurs, j);
+        j = init_joueur(&liste_clients->clients[i], roles_disponibles, types_disponibles);
+        ajouter_joueur(liste_joueurs, &j);
     }
     return 0;
 }
@@ -348,7 +375,7 @@ int nb_joueurs_vivants(liste_joueurs_t *liste_joueurs)
         return -1;
     }
     int nb_joueurs_vivants = 0;
-    int i;
+    unsigned int i;
     for (i = 0; i < liste_joueurs->nb_joueurs; i++)
     {
         if (liste_joueurs->joueurs[i].est_vivant == 0)
@@ -357,4 +384,93 @@ int nb_joueurs_vivants(liste_joueurs_t *liste_joueurs)
         }
     }
     return nb_joueurs_vivants;
+}
+
+types_disponibles_t init_types_disponibles()
+{
+    types_disponibles_t types_disponibles;
+
+    int min_type_tchat_villageois = 10;
+
+    types_disponibles.nb_types_tchat_villageois_restants = MAX_CLIENTS;
+    types_disponibles.nb_types_tchat_lg_restants = MAX_CLIENTS;
+    types_disponibles.nb_types_votes_villageois_restants = MAX_CLIENTS;
+    types_disponibles.nb_types_votes_lg_restants = MAX_CLIENTS;
+    types_disponibles.nb_types_votes_voyante_restants = 1;
+
+    int i;
+    int max = 0;
+    for (i = 0; i < MAX_CLIENTS; i++)
+    {
+        types_disponibles.types_tchat_villageois[i] = min_type_tchat_villageois + i;
+    }
+
+    max += i + min_type_tchat_villageois;
+
+    for (i = 0; i < MAX_CLIENTS; i++)
+    {
+        types_disponibles.types_tchat_lg[i] = max + i;
+    }
+
+    max += i;
+
+    for (i = 0; i < MAX_CLIENTS; i++)
+    {
+        types_disponibles.types_votes_villageois[i] = max + i;
+    }
+
+    max += i;
+
+    for (i = 0; i < MAX_CLIENTS; i++)
+    {
+        types_disponibles.types_votes_lg[i] = max + i;
+    }
+
+    types_disponibles.types_vote_voyante[0] = max+i;
+    return types_disponibles;
+}
+
+int afficher_liste_types_disponibles(types_disponibles_t *types_disponibles)
+{
+    if (types_disponibles == NULL)
+    {
+        printf("Erreur : Impossible d'afficher une liste de types disponibles nulle !\n");
+        return -1;
+    }
+
+    int i;
+
+    printf("Liste des types disponibles : \n");
+
+    printf("\tTypes tchat villageois : \n");
+    for (i = 0; i < types_disponibles->nb_types_tchat_villageois_restants; i++)
+    {
+        printf("\t - %d\n", types_disponibles->types_tchat_villageois[i]);
+    }
+
+    printf("\tTypes tchat lg : \n");
+    for (i = 0; i < types_disponibles->nb_types_tchat_lg_restants; i++)
+    {
+        printf("\t - %d\n", types_disponibles->types_tchat_lg[i]);
+    }
+
+    printf("\tTypes votes villageois : \n");
+    for (i = 0; i < types_disponibles->nb_types_votes_villageois_restants; i++)
+    {
+        printf("\t - %d\n", types_disponibles->types_votes_villageois[i]);
+    }
+
+    printf("\tTypes votes lg : \n");
+    for (i = 0; i < types_disponibles->nb_types_votes_lg_restants; i++)
+    {
+        printf("\t - %d\n", types_disponibles->types_votes_lg[i]);
+    }
+
+    printf("\tType vote Voyante : \n");
+    for (i = 0; i < types_disponibles->nb_types_votes_voyante_restants; i++)
+    {
+        printf("\t - %d\n", types_disponibles->types_vote_voyante[i]);
+    }
+
+    printf("\n");
 }
