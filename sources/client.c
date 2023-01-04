@@ -16,8 +16,11 @@ Liste des types :
 
 #include <bal.h>
 #include <connexion.h>
+#include <joueur.h>
+#include <partie.h>
 
 pthread_mutex_t mutex_partie_commence = PTHREAD_MUTEX_INITIALIZER;
+partie_t partie;
 
 int main()
 {
@@ -56,7 +59,9 @@ int main()
 
     printf("Connexion réussie !\n");
 
-    pthread_mutex_lock(&mutex_partie_commence);
+    partie_t partie = lire_infos_partie_joueurs(id_bal);
+
+    afficher_partie(&partie);
 
     return 0;
 }

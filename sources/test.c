@@ -6,7 +6,7 @@
 int main()
 {
     srand(time(NULL));
-    partie_t partie = creer_partie();
+    //partie_t partie = creer_partie();
 
     roles_disponibles_t roles_disponibles = init_liste_roles_disponibles();
     afficher_liste_roles_disponibles(&roles_disponibles);
