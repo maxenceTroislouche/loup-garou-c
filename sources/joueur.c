@@ -292,6 +292,27 @@ int index_joueur(liste_joueurs_t *liste_joueurs, joueur_t *joueur)
     return -1;
 }
 
+int index_joueur_pid(liste_joueurs_t *liste_joueurs, pid_t pid)
+{
+    if (liste_joueurs == NULL)
+    {
+        printf("Erreur : Impossible de trouver le pid d'un joueur dans une liste nulle !\n");
+        return -1;
+    }
+
+    int i;
+
+    for (i = 0; i < liste_joueurs->nb_joueurs; i++)
+    {
+        if (liste_joueurs->joueurs[i].client.pid == pid)
+        {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
 int retirer_joueur(liste_joueurs_t *liste_joueurs, joueur_t *joueur)
 {
     if (liste_joueurs == NULL)
@@ -384,6 +405,23 @@ int nb_joueurs_vivants(liste_joueurs_t *liste_joueurs)
         }
     }
     return nb_joueurs_vivants;
+}
+
+int nb_joueurs_role(liste_joueurs_t *liste_joueurs, int num_role)
+{
+    if (liste_joueurs == NULL)
+    {
+        printf("Erreur : Impossible de compter le nombre de joueurs d'un certain role avec une liste de joueurs nulle !\n");
+        return -1;
+    }
+    int somme = 0;
+    int i = 0;
+    for (i; i < liste_joueurs->nb_joueurs; i++)
+    {
+        if (liste_joueurs->joueurs[i].role.num == num_role)
+            somme++;
+    }
+    return somme;
 }
 
 types_disponibles_t init_types_disponibles()

@@ -80,10 +80,12 @@ liste_joueurs_t * creer_liste_joueurs();
 liste_joueurs_t init_liste_joueurs();
 int ajouter_joueur(liste_joueurs_t *liste_joueurs, joueur_t *joueur);
 int index_joueur(liste_joueurs_t *liste_joueurs, joueur_t *joueur);
+int index_joueur_pid(liste_joueurs_t *liste_joueurs, pid_t pid);
 int retirer_joueur(liste_joueurs_t *liste_joueurs, joueur_t *joueur);
 int ajouter_joueurs(liste_joueurs_t *liste_joueurs, liste_clients_t *liste_clients, roles_disponibles_t *roles_disponibles, types_disponibles_t *types_disponibles);
 int afficher_liste_joueurs(liste_joueurs_t *liste_joueurs);
 int nb_joueurs_vivants(liste_joueurs_t *liste_joueurs);
+int nb_joueurs_role(liste_joueurs_t *liste_joueurs, int num_role);
 types_disponibles_t init_types_disponibles();
 int afficher_liste_types_disponibles(types_disponibles_t *types_disponibles);
 

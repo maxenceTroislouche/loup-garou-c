@@ -37,6 +37,31 @@ typedef struct infos_partie
     msg_infos_partie_t mtext;
 } infos_partie_t;
 
+typedef struct reponse_serveur
+{
+    long mtype;
+    char mtext[3];
+} reponse_serveur_t;
+
+typedef struct msg_vote_villageois
+{
+    pid_t votant;
+    pid_t vote;
+} msg_vote_villageois_t;
+
+typedef struct vote_villageois
+{
+    long mtype;
+    msg_vote_villageois_t mtext;
+} vote_villageois_t;
+
+typedef struct gestion_vote_villageois
+{
+    pid_t votant[MAX_CLIENTS];
+    pid_t vote[MAX_CLIENTS];
+    int nb_votes;
+} gestion_vote_villageois_t;
+
 /* ------------------------------ */
 /*    Déclarations de fonctions   */
 /* ------------------------------ */
@@ -45,5 +70,7 @@ int afficher_partie(partie_t *partie);
 int commencer_partie(partie_t *partie);
 int envoyer_infos_partie_joueurs(int id_bal, partie_t *partie);
 partie_t lire_infos_partie_joueurs(int id_bal);
-
+int envoyer_vote_villageois(int id_bal, partie_t *partie);
+int lire_vote_villageois(int id_bal, partie_t *partie, gestion_vote_villageois_t *gestion_vote_villageois);
+pid_t resultat_vote_villageois(gestion_vote_villageois_t *gestion_vote_villageois);
 #endif
