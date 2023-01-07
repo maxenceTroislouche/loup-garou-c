@@ -1,10 +1,11 @@
 #include <partie.h>
 
 
-partie_t creer_partie()
+partie_t creer_partie(int id_bal)
 {
     partie_t partie;
     partie.etape = 0;
+    partie.id_bal = id_bal;
     partie.liste_joueurs = init_liste_joueurs();
     return partie;
 }
@@ -54,7 +55,7 @@ int envoyer_infos_partie_joueurs(int id_bal, partie_t *partie)
 
     // Il faut envoyer ce message à tous les joueurs
     // On envoie le message au pid du joueur 
-    int i;
+    unsigned int i;
     for (i = 0; i < partie->liste_joueurs.nb_joueurs; i++) {
         pid_t pid = partie->liste_joueurs.joueurs[i].client.pid;
 
@@ -67,6 +68,7 @@ int envoyer_infos_partie_joueurs(int id_bal, partie_t *partie)
             return -1;
         }
     }
+    return 0;
 }
 
 partie_t lire_infos_partie_joueurs(int id_bal)
@@ -74,7 +76,7 @@ partie_t lire_infos_partie_joueurs(int id_bal)
     if (id_bal == -1)
     {
         printf("Erreur : Impossible de lire les infos de la partie avec un id_bal = -1\n");
-        return creer_partie();
+        return creer_partie(id_bal);
     }
 
     infos_partie_t infos_partie;
@@ -85,7 +87,7 @@ partie_t lire_infos_partie_joueurs(int id_bal)
     if (resLec == -1)
     {
         printf("Erreur dans la lecture des infos de la partie\n");
-        return creer_partie();
+        return creer_partie(id_bal);
     }
 
     return infos_partie.mtext.partie;
@@ -96,7 +98,7 @@ int envoyer_vote_villageois(int id_bal, partie_t *partie)
     if (partie == NULL)
     {
         printf("Erreur : Impossible de voter pour un joueur dans une partie nulle !\n");
-        return NULL;
+        return -1;
     }
 
     if (id_bal == -1)
@@ -109,7 +111,7 @@ int envoyer_vote_villageois(int id_bal, partie_t *partie)
     liste_joueurs_t liste_joueurs_possibles = init_liste_joueurs();
     pid_t mon_pid = getpid();
 
-    int i;
+    unsigned int i;
     for (i = 0; i < partie->liste_joueurs.nb_joueurs; i++)
     {
         // Si le joueur est nous meme
@@ -132,23 +134,23 @@ int envoyer_vote_villageois(int id_bal, partie_t *partie)
 
 
     // Demande à l'utilisateur son vote
-    int vote;
+    unsigned int vote;
 
-    scanf("%d\n", &vote);
+    scanf("%d", &vote);
 
-    if (vote < 0 || vote >= liste_joueurs_possibles.nb_joueurs)
+    if (vote >= liste_joueurs_possibles.nb_joueurs)
     {
         printf("Votre vote n'est pas possible\n");
         return envoyer_vote_villageois(id_bal, partie);
     }
 
     // Envoie le vote au serveur (type : 5)
-    vote_villageois_t vote_villageois;
+    vote_t vote_villageois;
     vote_villageois.mtype = 5;
     vote_villageois.mtext.votant = mon_pid;
     vote_villageois.mtext.vote = liste_joueurs_possibles.joueurs[vote].client.pid;
 
-    int resEcr = ecrire_bal(id_bal, &vote_villageois, sizeof(msg_vote_villageois_t));
+    int resEcr = ecrire_bal(id_bal, &vote_villageois, sizeof(msg_vote_t));
     if (resEcr == -1)
     {
         printf("Erreur : Echec de l'envoi du vote\n");
@@ -164,7 +166,9 @@ int envoyer_vote_villageois(int id_bal, partie_t *partie)
         return -1;
     }
 
-    int type_reponse = partie->liste_joueurs.joueurs[i].type_vote_villageois;
+    int type_reponse = partie->liste_joueurs.joueurs[index].type_vote_villageois;
+
+    printf("Ecoute de la réponse du serveur sur le type : %d\n", type_reponse);
 
     // Attend la réponse du serveur (type se trouvant dans la structure joueur)
     reponse_serveur_t reponse;
@@ -175,19 +179,19 @@ int envoyer_vote_villageois(int id_bal, partie_t *partie)
         return -1;
     }
     
+    printf("Réponse du serveur : %s\n", reponse.mtext);
+
     if (strcmp(reponse.mtext, "OK") == 0)
     {
         // Si ok on quitte la fonction
+        printf("Vote validé !\n");
         return 0;
     }
-    else 
-    {
-        // Sinon on redemande à l'utilisateur son vote
-        return envoyer_vote_villageois(id_bal, partie);
-    }
+    // Sinon on redemande à l'utilisateur son vote
+    return envoyer_vote_villageois(id_bal, partie);
 }
 
-int lire_vote_villageois(int id_bal, partie_t *partie, gestion_vote_villageois_t *gestion_vote_villageois)
+int lire_vote_villageois(int id_bal, partie_t *partie, gestion_vote_t *gestion_vote_villageois)
 {
     if (partie == NULL)
     {
@@ -207,13 +211,17 @@ int lire_vote_villageois(int id_bal, partie_t *partie, gestion_vote_villageois_t
         return -1;
     }
 
-    vote_villageois_t vote_lu;
-    int resLec = lire_bal(id_bal, &vote_lu, sizeof(msg_vote_villageois_t), 5);
+    printf("Lecture d'un vote !\n");
+
+    vote_t vote_lu;
+    int resLec = lire_bal(id_bal, &vote_lu, sizeof(msg_vote_t), 5);
     if (resLec == -1)
     {
         printf("Erreur : erreur lors de la lecture du vote villageois !\n");
         return -1;
     }
+
+    printf("Vote lu !\n");
 
     // On regarde de quel joueur il s'agit
     
@@ -229,7 +237,7 @@ int lire_vote_villageois(int id_bal, partie_t *partie, gestion_vote_villageois_t
     if (ok != 1)
     {
         // Si le votant a déjà voté, alors on annule
-        for (i = 0; i < gestion_vote_villageois->nb_votes i++)
+        for (i = 0; i < gestion_vote_villageois->nb_votes; i++)
         {
             if (votant == gestion_vote_villageois->votant[i])
             {
@@ -254,10 +262,11 @@ int lire_vote_villageois(int id_bal, partie_t *partie, gestion_vote_villageois_t
     if (ok != 1)
     {
         // Si le votant ne se trouve pas dans la partie alors le vote n'est pas valide
-        index_votant= index_joueur_pid(&partie->liste_joueurs, votant);
+        index_votant = index_joueur_pid(&partie->liste_joueurs, votant);
 
         // On ne peut pas renvoyer de réponse au client :) 
-        return -1;
+        if (index_votant == -1)
+            return -1;
     }
 
     // Si le votant est mort, alors on annule
@@ -277,12 +286,14 @@ int lire_vote_villageois(int id_bal, partie_t *partie, gestion_vote_villageois_t
     // Sinon OK
     reponse_serveur_t reponse_serveur;
     reponse_serveur.mtype = partie->liste_joueurs.joueurs[index_votant].type_vote_villageois;
+
+    printf("Envoi de la réponse sur le type : %ld\n", reponse_serveur.mtype);
     if (ok == 0)
         strcpy(reponse_serveur.mtext, "OK");
     else
         strcpy(reponse_serveur.mtext, "KO");
 
-    int resEcr(id_bal, &reponse_serveur, sizeof(char) * 3);
+    int resEcr = ecrire_bal(id_bal, &reponse_serveur, sizeof(char) * 3);
     if (resEcr == -1)
     {
         printf("Erreur : Echec lors de l'envoi de la réponse au client !\n");
@@ -295,9 +306,9 @@ int lire_vote_villageois(int id_bal, partie_t *partie, gestion_vote_villageois_t
     return 0;
 }
 
-pid_t resultat_vote_villageois(gestion_vote_villageois_t *gestion_vote_villageois)
+pid_t resultat_vote(gestion_vote_t *gestion_vote)
 {
-    if (gestion_vote_villageois == NULL)
+    if (gestion_vote == NULL)
     {
         printf("Erreur : Impossible de déterminer le résultat du vote si le gestionnaire de vote est null!\n");
         return -1;
@@ -310,11 +321,11 @@ pid_t resultat_vote_villageois(gestion_vote_villageois_t *gestion_vote_villageoi
     int i = 0;
     int j = 0;
     int trouve = 0;
-    for (i = 0; i < gestion_vote_villageois->nb_votes; i++)
+    for (i = 0; i < gestion_vote->nb_votes; i++)
     {
         for (j = 0; j < vote_differents; j++)
         {
-            if (vote[j] == gestion_vote_villageois->vote[i])
+            if (vote[j] == gestion_vote->vote[i])
             {
                 trouve = 1;
                 total[j]++;
@@ -322,9 +333,9 @@ pid_t resultat_vote_villageois(gestion_vote_villageois_t *gestion_vote_villageoi
         }
         if (trouve == 0)
         {
-            vote_differents++;
-            vote[vote_differents] = gestion_vote_villageois->vote[i];
+            vote[vote_differents] = gestion_vote->vote[i];
             total[vote_differents] = 1;
+            vote_differents++;
         }
     }
 
@@ -340,4 +351,280 @@ pid_t resultat_vote_villageois(gestion_vote_villageois_t *gestion_vote_villageoi
     }
 
     return res;
+}
+
+int afficher_gestion_vote(gestion_vote_t *gestion_vote_villageois)
+{
+    if (gestion_vote_villageois == NULL)
+    {
+        printf("Erreur : Impossible d'afficher un gestionnaire de vote null !\n");
+        return -1;
+    }
+
+    printf("Affichage du gestionnaire de vote :\n");
+
+    int i;
+    for (i = 0; i < gestion_vote_villageois->nb_votes; i++)
+    {
+        printf("PID Votant : %d / PID vote : %d\n", gestion_vote_villageois->votant[i], gestion_vote_villageois->vote[i]);
+    }
+    return 0;
+}
+
+int nb_joueurs_eligible_vote_villageois(partie_t *p)
+{
+    if (p == NULL)
+    {
+        printf("Erreur : Impossible de compter le nombre de joueurs pouvant voter lors du vote villageois dans une partie nulle !\n");
+        return -1;
+    }
+
+    unsigned int i;
+    int somme = 0;
+    for (i = 0; i < p->liste_joueurs.nb_joueurs; i++)
+    {
+        if (p->liste_joueurs.joueurs[i].est_vivant == 0)
+            somme++;
+    }
+    return somme;
+}
+
+int envoyer_vote_lg(partie_t *partie)
+{
+    if (partie == NULL)
+    {
+        printf("Erreur : Impossible de voter pour un joueur dans une partie nulle !\n");
+        return -1;
+    }
+
+    int id_bal = partie->id_bal;
+
+    if (id_bal == -1)
+    {
+        printf("Erreur : Impossible de voter avec un id_bal de -1 !\n");
+        return -1;
+    }
+
+    // Affiche à l'utilisateur la liste des personnes pour qui elle peut voter
+    liste_joueurs_t liste_joueurs_possibles = init_liste_joueurs();
+    pid_t mon_pid = getpid();
+
+    unsigned int i;
+    for (i = 0; i < partie->liste_joueurs.nb_joueurs; i++)
+    {
+        // Si le joueur est nous meme
+        if (partie->liste_joueurs.joueurs[i].client.pid == mon_pid)
+            continue;
+
+        // Si le joueur est mort
+        if (partie->liste_joueurs.joueurs[i].est_vivant != 0)
+            continue;
+
+        // Si le joueur est un LG
+        if (partie->liste_joueurs.joueurs[i].role.num == ROLE_LG)
+            continue;
+
+        ajouter_joueur(&liste_joueurs_possibles, &partie->liste_joueurs.joueurs[i]);
+    }
+    
+    printf("Pour qui voulez vous voter ?\n");
+
+    for (i = 0; i < liste_joueurs_possibles.nb_joueurs; i++)
+    {
+        printf("- %d : %s\n", i, liste_joueurs_possibles.joueurs[i].client.nom);
+    }
+
+    // Demande à l'utilisateur son vote
+    unsigned int vote;
+
+    scanf("%d", &vote);
+
+    if (vote >= liste_joueurs_possibles.nb_joueurs)
+    {
+        printf("Votre vote n'est pas possible\n");
+        return envoyer_vote_lg(partie);
+    }
+
+    // Envoie le vote au serveur (type : 6)
+    vote_t vote_lg;
+    vote_lg.mtype = 6;
+    vote_lg.mtext.votant = mon_pid;
+    vote_lg.mtext.vote = liste_joueurs_possibles.joueurs[vote].client.pid;
+
+    int resEcr = ecrire_bal(id_bal, &vote_lg, sizeof(msg_vote_t));
+    if (resEcr == -1)
+    {
+        printf("Erreur : Echec de l'envoi du vote\n");
+        return -1;
+    }
+
+    // Il faut récupérer le type sur lequel on doit écouter
+    int index = index_joueur_pid(&partie->liste_joueurs, mon_pid);
+
+    if (index == -1)
+    {
+        printf("Erreur : Impossible de récupérer le type d'écoute pour le vote lg !\n");
+        return -1;
+    }
+
+    int type_reponse = partie->liste_joueurs.joueurs[index].type_vote_lg;
+
+    printf("Ecoute de la réponse du serveur sur le type : %d\n", type_reponse);
+
+    // Attend la réponse du serveur (type se trouvant dans la structure joueur)
+    reponse_serveur_t reponse;
+    int resLec = lire_bal(id_bal, &reponse, sizeof(char) * 3, type_reponse);
+    if (resLec == -1)
+    {
+        printf("Erreur : Echec de la lecture de la reponse serveur\n");
+        return -1;
+    }
+    
+    printf("Réponse du serveur : %s\n", reponse.mtext);
+
+    if (strcmp(reponse.mtext, "OK") == 0)
+    {
+        // Si ok on quitte la fonction
+        printf("Vote validé !\n");
+        return 0;
+    }
+    // Sinon on redemande à l'utilisateur son vote
+    return envoyer_vote_lg(partie);
+}
+
+int lire_vote_lg(partie_t *partie, gestion_vote_t *gestion_vote_lg)
+{
+    if (partie == NULL)
+    {
+        printf("Erreur : Impossible de lire un vote lg avec une partie nulle !\n");
+        return -1;
+    }
+
+    if (gestion_vote_lg == NULL)
+    {
+        printf("Erreur : Impossible de lire un vote lg avec un gestionnaire de vote null !\n");
+        return -1;
+    }
+
+    int id_bal = partie->id_bal;
+
+    if (id_bal == -1)
+    {
+        printf("Erreur : Impossible de lire un vote villageois avec un id_bal de -1 !\n");
+        return -1;
+    }
+
+    printf("Lecture d'un vote !\n");
+
+    vote_t vote_lu;
+    int resLec = lire_bal(id_bal, &vote_lu, sizeof(msg_vote_t), 6);
+    if (resLec == -1)
+    {
+        printf("Erreur : erreur lors de la lecture du vote lg !\n");
+        return -1;
+    }
+
+    printf("Vote lu !\n");
+
+    // On regarde de quel joueur il s'agit
+    
+    pid_t votant = vote_lu.mtext.votant;
+    pid_t vote = vote_lu.mtext.vote;
+    int i;
+    int ok = 0; // 0 : ok / 1 : ko
+    
+    // Si le joueur est le votant alors on annule
+    if (votant == vote)
+        ok = 1;
+
+    if (ok != 1)
+    {
+        // Si le votant a déjà voté, alors on annule
+        for (i = 0; i < gestion_vote_lg->nb_votes; i++)
+        {
+            if (votant == gestion_vote_lg->votant[i])
+            {
+                ok = 1;
+                break;
+            }
+        }
+    }
+    
+    int index_votant = -1;
+    int index_joueur = -1;
+
+    if (ok != 1)
+    {
+        // Si le joueur ne se trouve pas dans la partie alors le vote n'est pas valide
+        index_joueur = index_joueur_pid(&partie->liste_joueurs, vote);
+
+        if (index_joueur == -1)
+            ok = 1;
+    }
+
+    if (ok != 1)
+    {
+        // Si le votant ne se trouve pas dans la partie alors le vote n'est pas valide
+        index_votant = index_joueur_pid(&partie->liste_joueurs, votant);
+
+        // On ne peut pas renvoyer de réponse au client :) 
+        if (index_votant == -1)
+            return -1;
+    }
+
+    // Si le votant est mort, alors on annule
+    if (ok != 1)
+    {
+        if (partie->liste_joueurs.joueurs[index_votant].est_vivant != 0)
+            ok = 1;
+    }
+
+    // Si le joueur est mort alors on annule
+    if (ok != 1)
+    {
+        if (partie->liste_joueurs.joueurs[index_joueur].est_vivant != 0)
+            ok = 1;
+    }
+
+    // Sinon OK
+    reponse_serveur_t reponse_serveur;
+    reponse_serveur.mtype = partie->liste_joueurs.joueurs[index_votant].type_vote_lg;
+
+    printf("Envoi de la réponse sur le type : %ld\n", reponse_serveur.mtype);
+    if (ok == 0)
+        strcpy(reponse_serveur.mtext, "OK");
+    else
+        strcpy(reponse_serveur.mtext, "KO");
+
+    int resEcr = ecrire_bal(id_bal, &reponse_serveur, sizeof(char) * 3);
+    if (resEcr == -1)
+    {
+        printf("Erreur : Echec lors de l'envoi de la réponse au client !\n");
+        return -1;
+    }
+
+    gestion_vote_lg->votant[gestion_vote_lg->nb_votes] = votant;
+    gestion_vote_lg->vote[gestion_vote_lg->nb_votes] = vote;
+    gestion_vote_lg->nb_votes++;
+    return 0;
+}
+
+int nb_joueurs_eligible_vote_lg(partie_t *p)
+{
+    if (p == NULL)
+    {
+        printf("Erreur : Impossible de compter le nombre de joueurs pouvant voter lors du vote lg dans une partie nulle !\n");
+        return -1;
+    }
+
+    unsigned int i;
+    int somme = 0;
+    for (i = 0; i < p->liste_joueurs.nb_joueurs; i++)
+    {
+        if (p->liste_joueurs.joueurs[i].est_vivant == 0 && p->liste_joueurs.joueurs[i].role.num == ROLE_LG)
+        {
+            somme++;
+        }
+    }
+    return somme;
 }

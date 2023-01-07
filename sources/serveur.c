@@ -20,6 +20,9 @@ Liste des types :
 #include <partie.h>
 
 void *gerer_connexions(void *liste_clients);
+void *gerer_votes_villageois(void *partie);
+void *gerer_votes_lg(void *partie);
+
 
 pthread_mutex_t mutex_partie_pleine = PTHREAD_MUTEX_INITIALIZER;
 
@@ -56,7 +59,7 @@ int main()
     // On crée la partie
     roles_disponibles_t roles_disponibles = init_liste_roles_disponibles();
     types_disponibles_t types_disponibles = init_types_disponibles();
-    partie_t partie = creer_partie();
+    partie_t partie = creer_partie(id_bal);
    
     ajouter_joueurs(&partie.liste_joueurs, &liste_clients, &roles_disponibles, &types_disponibles);
     commencer_partie(&partie);
@@ -67,6 +70,19 @@ int main()
     envoyer_infos_partie_joueurs(id_bal, &partie);
 
     printf("Infos partie envoyée !\n");
+
+    /*
+        pthread_t thread_votes_villageois;
+        pthread_create(&thread_votes_villageois, NULL, gerer_votes_villageois, &partie);
+
+        pthread_join(thread_votes_villageois, NULL);
+    */
+
+    pthread_t thread_votes_lg;
+    pthread_create(&thread_votes_lg, NULL, gerer_votes_lg, &partie);
+
+    pthread_join(thread_votes_lg, NULL);
+
 
     // Suppression de la bal
     int resSupp = supprimer_bal(id_bal);
@@ -94,5 +110,57 @@ void *gerer_connexions(void *liste_clients)
 
         afficher_liste_clients(liste_clients);
     }
+    pthread_exit(0);
+}
+
+void *gerer_votes_villageois(void *partie)
+{
+    partie_t *p = (partie_t *)partie;
+    int nb_votes = nb_joueurs_eligible_vote_villageois(p);
+    gestion_vote_t gestion_vote_villageois;
+    gestion_vote_villageois.nb_votes = 0;
+
+    printf("Lecture des votes !\n");
+    printf("Nombre de votes à lire : %d\n", nb_votes);
+
+    while(gestion_vote_villageois.nb_votes < nb_votes)
+    {
+        lire_vote_villageois(p->id_bal, p, &gestion_vote_villageois);
+        afficher_gestion_vote(&gestion_vote_villageois);
+    }
+
+    pid_t res = resultat_vote(&gestion_vote_villageois);
+
+    int index_joueur = index_joueur_pid(&p->liste_joueurs, res);
+    p->liste_joueurs.joueurs[index_joueur].est_vivant = 1;
+
+    envoyer_infos_partie_joueurs(p->id_bal, p);
+
+    pthread_exit(0);
+}
+
+void *gerer_votes_lg(void *partie)
+{
+    partie_t *p = (partie_t *)partie;
+    int nb_votes = nb_joueurs_eligible_vote_lg(p);
+    gestion_vote_t gestion_vote_lg;
+    gestion_vote_lg.nb_votes = 0;
+
+    printf("Lecture des votes LG !\n");
+    printf("Nombre de votes à lire : %d\n", nb_votes);
+
+    while(gestion_vote_lg.nb_votes < nb_votes)
+    {
+        lire_vote_lg(p, &gestion_vote_lg);
+        afficher_gestion_vote(&gestion_vote_lg);
+    }
+
+    pid_t res = resultat_vote(&gestion_vote_lg);
+
+    int index_joueur = index_joueur_pid(&p->liste_joueurs, res);
+    p->liste_joueurs.joueurs[index_joueur].est_vivant = 1;
+
+    envoyer_infos_partie_joueurs(p->id_bal, p);
+
     pthread_exit(0);
 }

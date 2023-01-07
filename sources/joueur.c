@@ -382,6 +382,7 @@ int afficher_liste_joueurs(liste_joueurs_t *liste_joueurs)
     pthread_mutex_lock(&liste_joueurs->mutex_acces);
     for (unsigned int i = 0; i < liste_joueurs->nb_joueurs; i++)
     {
+        printf("index : %d\n", i);
         afficher_joueur(&liste_joueurs->joueurs[i]);
     }
     pthread_mutex_unlock(&liste_joueurs->mutex_acces);
@@ -418,7 +419,7 @@ int nb_joueurs_role(liste_joueurs_t *liste_joueurs, int num_role)
     int i = 0;
     for (i; i < liste_joueurs->nb_joueurs; i++)
     {
-        if (liste_joueurs->joueurs[i].role.num == num_role)
+        if (liste_joueurs->joueurs[i].role.num == num_role && liste_joueurs->joueurs[i].est_vivant == 0)
             somme++;
     }
     return somme;

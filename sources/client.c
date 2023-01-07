@@ -63,5 +63,18 @@ int main()
 
     afficher_partie(&partie);
 
+   // envoyer_vote_villageois(id_bal, &partie);
+
+    int index_joueur = index_joueur_pid(&partie.liste_joueurs, getpid());
+
+    if (partie.liste_joueurs.joueurs[index_joueur].role.num == ROLE_LG)
+    {
+        envoyer_vote_lg(&partie);
+    }
+
+    partie = lire_infos_partie_joueurs(id_bal);
+
+    afficher_partie(&partie);
+
     return 0;
 }
