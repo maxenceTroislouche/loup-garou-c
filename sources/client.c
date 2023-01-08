@@ -20,7 +20,10 @@ Liste des types :
 #include <partie.h>
 
 pthread_mutex_t mutex_partie_commence = PTHREAD_MUTEX_INITIALIZER;
-partie_t partie;
+
+void jouer_voyante(partie_t *partie);
+void jouer_lg(partie_t *partie);
+void jouer_villageois(partie_t *partie, liste_joueurs_t *liste_joueurs_morts);
 
 int main()
 {
@@ -60,21 +63,76 @@ int main()
     printf("Connexion réussie !\n");
 
     partie_t partie = lire_infos_partie_joueurs(id_bal);
+    liste_joueurs_t liste_joueurs_morts = init_liste_joueurs();
 
-    afficher_partie(&partie);
+    role_t mon_role = role_joueur_pid(&partie.liste_joueurs, getpid());
 
-   // envoyer_vote_villageois(id_bal, &partie);
-
-    int index_joueur = index_joueur_pid(&partie.liste_joueurs, getpid());
-
-    if (partie.liste_joueurs.joueurs[index_joueur].role.num == ROLE_LG)
+    printf("Votre role est %s\n", mon_role.nom);
+ 
+    while(partie.etape != 4)
     {
-        envoyer_vote_lg(&partie);
+        afficher_roles_restants_partie(&partie);
+
+        if (partie.etape == 1)
+        {
+            jouer_voyante(&partie);
+            partie = lire_infos_partie_joueurs(id_bal);
+        }
+        else if(partie.etape == 2)
+        {
+            jouer_lg(&partie);
+            partie = lire_infos_partie_joueurs(id_bal);
+        }
+        else if(partie.etape == 3)
+        {
+            jouer_villageois(&partie, &liste_joueurs_morts);
+            partie = lire_infos_partie_joueurs(id_bal);
+            printf("Après le vote du village :");
+            afficher_dernier_joueur_mort(&partie, &liste_joueurs_morts);
+        }
+        else
+        {
+            printf("Erreur etape de la partie non pris en compte !\n");
+            return 1;
+        }
     }
 
-    partie = lire_infos_partie_joueurs(id_bal);
-
-    afficher_partie(&partie);
+    afficher_res_partie(&partie);
 
     return 0;
+}
+
+void jouer_voyante(partie_t *partie)
+{
+    role_t role = role_joueur_pid(&partie->liste_joueurs, getpid());
+    if (role.num == ROLE_VOYANTE)
+    {
+        printf("C'est à votre tour de jouer\n");
+        envoyer_vote_voyante(partie);
+    }
+    else
+    {
+        printf("C'est à la voyante de jouer !\n");
+    }
+}
+
+void jouer_lg(partie_t *partie)
+{
+    role_t role = role_joueur_pid(&partie->liste_joueurs, getpid());
+    if (role.num == ROLE_LG)
+    {
+        printf("C'est à votre tour de jouer\n");
+        envoyer_vote_lg(partie);
+    }
+    else
+    {
+        printf("C'est aux loups garous de jouer !\n");
+    }
+}
+void jouer_villageois(partie_t *partie, liste_joueurs_t *liste_joueurs_morts)
+{
+    printf("C'est à votre tour de jouer !\n");
+    printf("Pendant la nuit : ");
+    afficher_dernier_joueur_mort(partie, liste_joueurs_morts);
+    envoyer_vote_villageois(partie->id_bal, partie);
 }

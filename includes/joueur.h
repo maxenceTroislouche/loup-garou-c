@@ -88,5 +88,7 @@ int nb_joueurs_vivants(liste_joueurs_t *liste_joueurs);
 int nb_joueurs_role(liste_joueurs_t *liste_joueurs, int num_role);
 types_disponibles_t init_types_disponibles();
 int afficher_liste_types_disponibles(types_disponibles_t *types_disponibles);
+role_t role_joueur_pid(liste_joueurs_t *liste_joueurs, pid_t pid);
+
 
 #endif

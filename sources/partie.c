@@ -628,3 +628,260 @@ int nb_joueurs_eligible_vote_lg(partie_t *p)
     }
     return somme;
 }
+
+int envoyer_vote_voyante(partie_t *partie)
+{
+    if (partie == NULL)
+    {
+        printf("Erreur : Impossible d'envoyer un vote voyante avec une partie nulle !\n");
+        return -1;
+    }
+
+    int id_bal = partie->id_bal;
+
+    if (id_bal == -1)
+    {
+        printf("Erreur : Impossible d'envoyer un vote voyante avec un id_bal de -1\n");
+        return -1;
+    }
+
+    // Affiche à l'utilisateur la liste des personnes pour qui elle peut voter
+    liste_joueurs_t liste_joueurs_possibles = init_liste_joueurs();
+    pid_t mon_pid = getpid();
+
+    unsigned int i;
+    for (i = 0; i < partie->liste_joueurs.nb_joueurs; i++)
+    {
+        // Si le joueur est nous meme
+        if (partie->liste_joueurs.joueurs[i].client.pid == mon_pid)
+            continue;
+
+        // Si le joueur est mort
+        if (partie->liste_joueurs.joueurs[i].est_vivant != 0)
+            continue;
+
+        ajouter_joueur(&liste_joueurs_possibles, &partie->liste_joueurs.joueurs[i]);
+    }
+
+    printf("Vous voulez voir le role de qui ?\n");
+
+    for (i = 0; i < liste_joueurs_possibles.nb_joueurs; i++)
+    {
+        printf("- %d : %s\n", i, liste_joueurs_possibles.joueurs[i].client.nom);
+    }
+
+    // Demande à l'utilisateur son vote
+    unsigned int vote;
+
+    scanf("%d", &vote);
+
+    if (vote >= liste_joueurs_possibles.nb_joueurs)
+    {
+        printf("Votre vote n'est pas possible\n");
+        return envoyer_vote_lg(partie);
+    }
+
+    // Envoie le vote au serveur (type : 7)
+    vote_voyante_t vote_voyante;
+    vote_voyante.mtype = 7;
+    vote_voyante.mtext.pid_demandeur = mon_pid;
+    vote_voyante.mtext.pid_demande = liste_joueurs_possibles.joueurs[vote].client.pid;
+
+    int resEcr = ecrire_bal(id_bal, &vote_voyante, sizeof(msg_vote_voyante_t));
+    if (resEcr == -1)
+    {
+        printf("Erreur : Echec de l'envoi du vote\n");
+        return -1;
+    }
+
+    // Il faut récupérer le type sur lequel on doit écouter
+    int index = index_joueur_pid(&partie->liste_joueurs, mon_pid);
+
+    if (index == -1)
+    {
+        printf("Erreur : Impossible de récupérer le type d'écoute pour le vote voyante !\n");
+        return -1;
+    }
+
+    int type_reponse = partie->liste_joueurs.joueurs[index].type_vote_voyante;
+
+    printf("Ecoute de la réponse du serveur sur le type : %d\n", type_reponse);
+
+    // Attend la réponse du serveur (type se trouvant dans la structure joueur)
+    reponse_serveur_voyante_t reponse;
+    int resLec = lire_bal(id_bal, &reponse, sizeof(msg_reponse_serveur_voyante_t), type_reponse);
+    if (resLec == -1)
+    {
+        printf("Erreur : Echec de la lecture de la reponse serveur\n");
+        return -1;
+    }
+    
+    printf("Réponse du serveur : %s\n", reponse.mtext.status);
+
+    if (strcmp(reponse.mtext.status, "OK") == 0)
+    {
+        // Si ok on quitte la fonction
+        printf("Le joueur est un %s !\n", reponse.mtext.role.nom);
+        return 0;
+    }
+    printf("Vote refusé !\n");
+    // Sinon on redemande à l'utilisateur son vote
+    return envoyer_vote_voyante(partie);
+}
+
+int lire_vote_voyante(partie_t *partie)
+{
+    if (partie == NULL)
+    {
+        printf("Erreur : Impossible de lire un vote voyante avec une partie nulle !\n");
+        return -1;
+    }
+
+    int id_bal = partie->id_bal;
+
+    if (id_bal == -1)
+    {
+        printf("Erreur : Impossible de lire un vote villageois avec un id_bal de -1 !\n");
+        return -1;
+    }
+
+    vote_voyante_t vote_lu;
+    int resLec = lire_bal(id_bal, &vote_lu, sizeof(msg_vote_voyante_t), 7);
+    if (resLec == -1)
+    {
+        printf("Erreur : erreur lors de la lecture du vote lg !\n");
+        return -1;
+    }
+
+    pid_t demandeur = vote_lu.mtext.pid_demandeur;
+    pid_t demande = vote_lu.mtext.pid_demande;
+
+    int ok = 0; // 0 : ok / 1 : ko
+
+    if (demandeur == demande)
+        ok = 1;
+
+    int index_demandeur = index_joueur_pid(&partie->liste_joueurs, demandeur);
+    int index_demande = index_joueur_pid(&partie->liste_joueurs, demande);
+
+    if (index_demandeur == -1)
+    {
+        printf("Le joueur ayant envoyé le vote voyante ne se trouve pas dans la partie");
+        ok = 1;
+        return -1;
+    }
+
+    if (index_demande == -1)
+    {
+        printf("Le joueur demandé ne se trouve pas dans la partie\n");
+        ok = 1;
+    }
+
+    // Si le votant est mort, alors on annule
+    if (ok != 1)
+    {
+        if (partie->liste_joueurs.joueurs[index_demandeur].est_vivant != 0)
+            ok = 1;
+    }
+
+    // Si le joueur est mort alors on annule
+    if (ok != 1)
+    {
+        if (partie->liste_joueurs.joueurs[index_demande].est_vivant != 0)
+            ok = 1;
+    }
+
+    // Si le demandeur n'est pas une voyante
+    if (ok != 1)
+    {
+        if (partie->liste_joueurs.joueurs[index_demandeur].role.num != ROLE_VOYANTE)
+            ok = 1;
+    }
+
+    // Sinon OK
+    reponse_serveur_voyante_t reponse_serveur;
+    reponse_serveur.mtype = partie->liste_joueurs.joueurs[index_demandeur].type_vote_voyante;
+
+    printf("Envoi de la réponse sur le type : %ld\n", reponse_serveur.mtype);
+    if (ok == 0)
+    {
+        strcpy(reponse_serveur.mtext.status, "OK");
+        reponse_serveur.mtext.role = partie->liste_joueurs.joueurs[index_demande].role;
+    }
+    else
+        strcpy(reponse_serveur.mtext.status, "KO");
+
+    int resEcr = ecrire_bal(id_bal, &reponse_serveur, sizeof(msg_reponse_serveur_voyante_t));
+    if (resEcr == -1)
+    {
+        printf("Erreur : Echec lors de l'envoi de la réponse au client !\n");
+        return -1;
+    }
+
+    return 0;
+}
+
+void afficher_roles_restants_partie(partie_t *partie)
+{
+    int somme_voyante = 0;
+    int somme_lg = 0;
+    int somme_villageois = 0;
+
+    unsigned int i;
+    for (i = 0; i < partie->liste_joueurs.nb_joueurs; i++)
+    {
+        if (partie->liste_joueurs.joueurs[i].est_vivant != 0)
+            continue;
+
+        if (partie->liste_joueurs.joueurs[i].role.num == ROLE_LG)
+            somme_lg++;
+
+        if (partie->liste_joueurs.joueurs[i].role.num == ROLE_VILLAGEOIS)
+            somme_villageois++;
+        
+        if (partie->liste_joueurs.joueurs[i].role.num == ROLE_VOYANTE)
+            somme_voyante++;
+    }
+
+    printf("Roles restants dans la partie :\n");
+
+    printf("- Voyante : %d\n", somme_voyante);
+    printf("- Villageois : %d\n", somme_villageois);
+    printf("- Loups-Garous : %d\n", somme_lg);
+    printf("\n");
+}
+
+void afficher_res_partie(partie_t *partie)
+{
+    int nb_lg = nb_joueurs_role(&partie->liste_joueurs, ROLE_LG);
+    if (nb_lg > 0)
+    {
+        printf("Les loups garous ont gagné la partie !\n");
+    }
+    else
+    {
+        printf("Les villageois ont gagné la partie !\n");
+    }
+}
+
+void afficher_dernier_joueur_mort(partie_t *partie, liste_joueurs_t *liste_joueurs_morts)
+{
+    if (partie == NULL || liste_joueurs_morts == NULL)
+        return;
+
+    unsigned int i;
+    int index_joueur;
+    for (i = 0; i < partie->liste_joueurs.nb_joueurs; i++)
+    {
+        if (partie->liste_joueurs.joueurs[i].est_vivant != 0)
+        {
+            index_joueur = index_joueur_pid(liste_joueurs_morts, partie->liste_joueurs.joueurs[i].client.pid);
+            if (index_joueur == -1)
+            {
+                // Le joueur est le dernier à etre mort
+                printf("%s est mort !\n", partie->liste_joueurs.joueurs[i].client.nom);
+                ajouter_joueur(liste_joueurs_morts, &partie->liste_joueurs.joueurs[i]);
+            }
+        }
+    }
+}

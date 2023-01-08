@@ -513,3 +513,9 @@ int afficher_liste_types_disponibles(types_disponibles_t *types_disponibles)
 
     printf("\n");
 }
+
+role_t role_joueur_pid(liste_joueurs_t *liste_joueurs, pid_t pid)
+{
+    int index_joueur = index_joueur_pid(liste_joueurs, pid);
+    return liste_joueurs->joueurs[index_joueur].role;
+}

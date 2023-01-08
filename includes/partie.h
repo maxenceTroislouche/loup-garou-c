@@ -19,6 +19,7 @@
     Etape 1 : Le village s'endort : La voyante se réveille
     Etape 2 : Les LG se réveillent : Vote LG
     Etape 3 : Le village se réveille : Vote des villageois
+    Etape 4 : Fin de partie
 */
 typedef struct partie
 {
@@ -63,6 +64,30 @@ typedef struct gestion_vote
     int nb_votes;
 } gestion_vote_t;
 
+typedef struct msg_vote_voyante
+{
+    pid_t pid_demandeur;
+    pid_t pid_demande;
+} msg_vote_voyante_t;
+
+typedef struct vote_voyante
+{
+    long mtype;
+    msg_vote_voyante_t mtext;
+} vote_voyante_t;
+
+typedef struct msg_reponse_serveur_voyante
+{
+    char status[3];
+    role_t role;
+} msg_reponse_serveur_voyante_t;
+
+typedef struct reponse_serveur_voyante
+{
+    long mtype;
+    msg_reponse_serveur_voyante_t mtext;
+} reponse_serveur_voyante_t;
+
 /* ------------------------------ */
 /*    Déclarations de fonctions   */
 /* ------------------------------ */
@@ -79,6 +104,9 @@ int nb_joueurs_eligible_vote_villageois(partie_t *p);
 int nb_joueurs_eligible_vote_lg(partie_t *p);
 int envoyer_vote_lg(partie_t *partie);
 int lire_vote_lg(partie_t *partie, gestion_vote_t *gestion_vote_lg);
-
-
+int envoyer_vote_voyante(partie_t *partie);
+int lire_vote_voyante(partie_t *partie);
+void afficher_roles_restants_partie(partie_t *partie);
+void afficher_res_partie(partie_t *partie);
+void afficher_dernier_joueur_mort(partie_t *partie, liste_joueurs_t *liste_joueurs_morts);
 #endif

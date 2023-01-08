@@ -22,6 +22,7 @@ Liste des types :
 void *gerer_connexions(void *liste_clients);
 void *gerer_votes_villageois(void *partie);
 void *gerer_votes_lg(void *partie);
+void *gerer_vote_voyante(void *partie);
 
 
 pthread_mutex_t mutex_partie_pleine = PTHREAD_MUTEX_INITIALIZER;
@@ -62,6 +63,7 @@ int main()
     partie_t partie = creer_partie(id_bal);
    
     ajouter_joueurs(&partie.liste_joueurs, &liste_clients, &roles_disponibles, &types_disponibles);
+    // Met la partie à l'étape 1
     commencer_partie(&partie);
 
     afficher_partie(&partie);
@@ -71,18 +73,73 @@ int main()
 
     printf("Infos partie envoyée !\n");
 
-    /*
-        pthread_t thread_votes_villageois;
-        pthread_create(&thread_votes_villageois, NULL, gerer_votes_villageois, &partie);
+    // Premier tour voyante
+    // Deuxieme tour lg
+    // Troisieme tour villageois
+    // Retour tour un si voyante en vie
 
-        pthread_join(thread_votes_villageois, NULL);
+    /*
+        Etape 0 : Attente des joueurs
+        Etape 1 : Le village s'endort : La voyante se réveille
+        Etape 2 : Les LG se réveillent : Vote LG
+        Etape 3 : Le village se réveille : Vote des villageois
+        Etape 4 : Fin de partie
     */
 
-    pthread_t thread_votes_lg;
-    pthread_create(&thread_votes_lg, NULL, gerer_votes_lg, &partie);
+    int nb_lg = nb_joueurs_role(&partie.liste_joueurs, ROLE_LG);
+    int nb_joueurs_vivant = nb_joueurs_vivants(&partie.liste_joueurs);
+    int nb_voyante = nb_joueurs_role(&partie.liste_joueurs, ROLE_VOYANTE);
+    // Jeu en cours tant que des loups garous sont encore en vie ou qu'ils n'y a plus que des loups en jeu
+    while(nb_lg > 0 && nb_joueurs_vivant > nb_lg)
+    {
+        // Tour de la voyante
+        if (nb_voyante > 0)
+        {
+            pthread_t thread_vote_voyante;
+            pthread_create(&thread_vote_voyante, NULL, gerer_vote_voyante, &partie);
+            pthread_join(thread_vote_voyante, NULL);
+            
+            // Maintenant au tour des LG
+            partie.etape = 2;
+            envoyer_infos_partie_joueurs(partie.id_bal, &partie);
+        }
 
-    pthread_join(thread_votes_lg, NULL);
+        // Tour des loups
+        pthread_t thread_votes_lg;
+        pthread_create(&thread_votes_lg, NULL, gerer_votes_lg, &partie);
+        pthread_join(thread_votes_lg, NULL);
+        
+        // Tour des villageois
+        nb_joueurs_vivant = nb_joueurs_vivants(&partie.liste_joueurs);
+        if (nb_lg == 0 || nb_joueurs_vivant == nb_lg)
+        {
+            partie.etape = 4;
+            envoyer_infos_partie_joueurs(partie.id_bal, &partie);
+            break;
+        }
+        else
+        {
+            partie.etape = 3;
+            envoyer_infos_partie_joueurs(partie.id_bal, &partie);
+        }
 
+        pthread_t thread_votes_villageois;
+        pthread_create(&thread_votes_villageois, NULL, gerer_votes_villageois, &partie);
+        pthread_join(thread_votes_villageois, NULL);
+
+        nb_lg = nb_joueurs_role(&partie.liste_joueurs, ROLE_LG);
+        nb_voyante = nb_joueurs_role(&partie.liste_joueurs, ROLE_VOYANTE);
+        nb_joueurs_vivant = nb_joueurs_vivants(&partie.liste_joueurs);
+        
+        if (nb_lg == 0 || nb_joueurs_vivant == nb_lg)
+            partie.etape = 4;
+        else
+            partie.etape = 1;
+        
+        envoyer_infos_partie_joueurs(partie.id_bal, &partie);   
+    }
+
+    printf("Fin de la partie !\n");
 
     // Suppression de la bal
     int resSupp = supprimer_bal(id_bal);
@@ -134,8 +191,6 @@ void *gerer_votes_villageois(void *partie)
     int index_joueur = index_joueur_pid(&p->liste_joueurs, res);
     p->liste_joueurs.joueurs[index_joueur].est_vivant = 1;
 
-    envoyer_infos_partie_joueurs(p->id_bal, p);
-
     pthread_exit(0);
 }
 
@@ -160,7 +215,22 @@ void *gerer_votes_lg(void *partie)
     int index_joueur = index_joueur_pid(&p->liste_joueurs, res);
     p->liste_joueurs.joueurs[index_joueur].est_vivant = 1;
 
-    envoyer_infos_partie_joueurs(p->id_bal, p);
+    pthread_exit(0);
+}
+
+void *gerer_vote_voyante(void *partie)
+{
+    partie_t *p = (partie_t *)partie;
+    int nb_votes = 1;
+
+    printf("Lecture du vote voyante !\n");
+
+    while(nb_votes > 0)
+    {
+        int res = lire_vote_voyante(p);
+        if (res == 0)
+            nb_votes--;
+    }
 
     pthread_exit(0);
 }
