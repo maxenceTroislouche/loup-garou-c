@@ -81,12 +81,20 @@ roles_disponibles_t init_liste_roles_disponibles()
     roles_disponibles_t roles_disponibles;
     roles_disponibles.nb_roles_disponibles = MAX_CLIENTS;
 
-    // TODO : Distribution dynamique des roles
+    int i;
+
     roles_disponibles.roles[0] = creer_role(ROLE_VOYANTE);
-    roles_disponibles.roles[1] = creer_role(ROLE_LG);
-    roles_disponibles.roles[2] = creer_role(ROLE_LG);
-    roles_disponibles.roles[3] = creer_role(ROLE_VILLAGEOIS);
-    roles_disponibles.roles[4] = creer_role(ROLE_VILLAGEOIS);
+    for (i = 1; i <= (MAX_CLIENTS / 3) + 1; i++)
+    {
+        roles_disponibles.roles[i] = creer_role(ROLE_LG);
+    }
+
+    for (i; i < MAX_CLIENTS; i++)
+    {
+        roles_disponibles.roles[i] = creer_role(ROLE_VILLAGEOIS); 
+    }
+
+    afficher_liste_roles_disponibles(&roles_disponibles);
 
     return roles_disponibles;
 }
@@ -153,6 +161,7 @@ joueur_t * creer_joueur(client_t *client, roles_disponibles_t *roles_disponibles
 joueur_t init_joueur(client_t *client, roles_disponibles_t *roles_disponibles, types_disponibles_t *types_disponibles)
 {
     joueur_t joueur;
+    joueur.role.num = -1;
 
     if (client == NULL)
     {
@@ -382,7 +391,6 @@ int afficher_liste_joueurs(liste_joueurs_t *liste_joueurs)
     pthread_mutex_lock(&liste_joueurs->mutex_acces);
     for (unsigned int i = 0; i < liste_joueurs->nb_joueurs; i++)
     {
-        printf("index : %d\n", i);
         afficher_joueur(&liste_joueurs->joueurs[i]);
     }
     pthread_mutex_unlock(&liste_joueurs->mutex_acces);

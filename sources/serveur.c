@@ -133,8 +133,9 @@ int main()
         
         if (nb_lg == 0 || nb_joueurs_vivant == nb_lg)
             partie.etape = 4;
-        else
+        else if (nb_voyante > 0)
             partie.etape = 1;
+        else partie.etape = 2;
         
         envoyer_infos_partie_joueurs(partie.id_bal, &partie);   
     }

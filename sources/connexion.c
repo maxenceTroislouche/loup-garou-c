@@ -172,28 +172,50 @@ int lire_demande_connexion(int id_bal, liste_clients_t *liste_clients)
         return -1;
     }
 
-    // Créer le client à partir des infos reçus
-    client_t *c = creer_client(demande.mtext.pid, demande.mtext.nom);
-    if (c == NULL)
+    unsigned int i;
+    int ok = 0;
+    for (i = 0; i < liste_clients->nb_clients; i++)
     {
-        printf("Erreur dans la création du client !\n");
-        return -1;
+        if (strcmp(liste_clients->clients[i].nom, demande.mtext.nom) == 0)
+        {
+            ok = 1;
+        }
     }
 
-    // Ajout du client dans la liste de clients
-    int resAjout = ajouter_client(liste_clients, *c);
+    if (ok != 1)
+    {
+        // Créer le client à partir des infos reçus
+        client_t *c = creer_client(demande.mtext.pid, demande.mtext.nom);
+        if (c == NULL)
+        {
+            printf("Erreur dans la création du client !\n");
+            return -1;
+        }
 
-    // On envoie une réponse au client sur le type = pid client
-    demande_connexion_t reponse;
-    reponse.mtype = demande.mtext.pid;
-    reponse.mtext.pid = getpid();
-    if (resAjout == -1)
-        strcpy(reponse.mtext.message, "KO");
+        // Ajout du client dans la liste de clients
+        int resAjout = ajouter_client(liste_clients, *c);
+
+        // On envoie une réponse au client sur le type = pid client
+        demande_connexion_t reponse;
+        reponse.mtype = demande.mtext.pid;
+        reponse.mtext.pid = getpid();
+        if (resAjout == -1)
+            strcpy(reponse.mtext.message, "KO");
+        else
+            strcpy(reponse.mtext.message, "OK");
+
+        int resEcr = ecrire_bal(id_bal, &reponse, sizeof(msg_demande_connexion_t));
+        return resEcr;
+    }
     else
-        strcpy(reponse.mtext.message, "OK");
-
-    int resEcr = ecrire_bal(id_bal, &reponse, sizeof(msg_demande_connexion_t));
-    return resEcr;
+    {
+        demande_connexion_t reponse;
+        reponse.mtype = demande.mtext.pid;
+        reponse.mtext.pid = getpid();
+        strcpy(reponse.mtext.message, "KO");
+        int resEcr = ecrire_bal(id_bal, &reponse, sizeof(msg_demande_connexion_t));
+        return resEcr;
+    }
 }
 
 int envoyer_demande_connexion(int id_bal, char *nom)
@@ -215,6 +237,8 @@ int envoyer_demande_connexion(int id_bal, char *nom)
         printf("Erreur : Impossible d'envoyer une demande de connexion avec un nom aussi long !\n");
         return -1;
     }
+
+    nom[strlen(nom) - 1] = '\0';
 
     demande_connexion_t demande;
     demande.mtype = 2;

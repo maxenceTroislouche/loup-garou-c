@@ -2,6 +2,7 @@
     "C_Cpp.errorSquiggles": "disabled",
     "files.associations": {
         "joueur.h": "c",
-        "partie.h": "c"
+        "partie.h": "c",
+        "connexion.h": "c"
     }
 }

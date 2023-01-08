@@ -54,7 +54,7 @@ int main()
     int resEnv = envoyer_demande_connexion(id_bal, nom);
     if (resEnv == -1)
     {
-        printf("La partie est pleine !\n");
+        printf("La partie est pleine ou nom déjà pris !\n");
         return 1;
     }
     
@@ -87,7 +87,7 @@ int main()
         {
             jouer_villageois(&partie, &liste_joueurs_morts);
             partie = lire_infos_partie_joueurs(id_bal);
-            printf("Après le vote du village :");
+            printf("Après le vote du village : ");
             afficher_dernier_joueur_mort(&partie, &liste_joueurs_morts);
         }
         else
@@ -105,10 +105,14 @@ int main()
 void jouer_voyante(partie_t *partie)
 {
     role_t role = role_joueur_pid(&partie->liste_joueurs, getpid());
-    if (role.num == ROLE_VOYANTE)
+    if (role.num == ROLE_VOYANTE && partie->liste_joueurs.joueurs[index_joueur_pid(&partie->liste_joueurs, getpid())].est_vivant == 0)
     {
         printf("C'est à votre tour de jouer\n");
         envoyer_vote_voyante(partie);
+    }
+    else if (partie->liste_joueurs.joueurs[index_joueur_pid(&partie->liste_joueurs, getpid())].est_vivant == 1)
+    {
+        printf("Vous etes mort, c'est à la voyante de jouer !\n");
     }
     else
     {
@@ -119,10 +123,14 @@ void jouer_voyante(partie_t *partie)
 void jouer_lg(partie_t *partie)
 {
     role_t role = role_joueur_pid(&partie->liste_joueurs, getpid());
-    if (role.num == ROLE_LG)
+    if (role.num == ROLE_LG && partie->liste_joueurs.joueurs[index_joueur_pid(&partie->liste_joueurs, getpid())].est_vivant == 0)
     {
         printf("C'est à votre tour de jouer\n");
         envoyer_vote_lg(partie);
+    }
+    else if (role.num == ROLE_LG && partie->liste_joueurs.joueurs[index_joueur_pid(&partie->liste_joueurs, getpid())].est_vivant == 1)
+    {
+        printf("Vous etes mort, c'est aux loups garous de jouer !\n");
     }
     else
     {
@@ -134,5 +142,8 @@ void jouer_villageois(partie_t *partie, liste_joueurs_t *liste_joueurs_morts)
     printf("C'est à votre tour de jouer !\n");
     printf("Pendant la nuit : ");
     afficher_dernier_joueur_mort(partie, liste_joueurs_morts);
-    envoyer_vote_villageois(partie->id_bal, partie);
+    if (partie->liste_joueurs.joueurs[index_joueur_pid(&partie->liste_joueurs, getpid())].est_vivant == 0)
+        envoyer_vote_villageois(partie->id_bal, partie);
+    else
+        printf("Vous etes morts, c'est aux villageois de jouer\n");
 }
