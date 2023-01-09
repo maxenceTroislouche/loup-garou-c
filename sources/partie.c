@@ -697,8 +697,6 @@ int envoyer_vote_voyante(partie_t *partie)
 
     int type_reponse = partie->liste_joueurs.joueurs[index].type_vote_voyante;
 
-    printf("Ecoute de la réponse du serveur sur le type : %d\n", type_reponse);
-
     // Attend la réponse du serveur (type se trouvant dans la structure joueur)
     reponse_serveur_voyante_t reponse;
     int resLec = lire_bal(id_bal, &reponse, sizeof(msg_reponse_serveur_voyante_t), type_reponse);
@@ -708,8 +706,6 @@ int envoyer_vote_voyante(partie_t *partie)
         return -1;
     }
     
-    printf("Réponse du serveur : %s\n", reponse.mtext.status);
-
     if (strcmp(reponse.mtext.status, "OK") == 0)
     {
         // Si ok on quitte la fonction
