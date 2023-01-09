@@ -20,3 +20,16 @@ les villageois disposent d'un simple chat et dorment la nuit et ne sont donc pas
 La répartition est de plus ou moins 1/3 de loup garou par partie.
 
 Nous conseillons de lancer une partie à partir de 8 joueurs.
+
+## Comment jouer au jeu
+
+Il faut cloner ce repo dans un dossier sur votre PC
+Il faut ensuite compiler le code à l'aide de make (en cas d'échec vérifier que les dossiers objects et executables sont bien existant, sinon vous pouvez les créer)
+
+Pour créer une partie il suffit de lancer la commande ./executables/serveur.exe
+Le programme affichera un numéro de partie qui servira au client pour se connecter
+
+Pour rejoindre la partie, il faut executer la commande ./executables/client.exe
+Il suffit ensuite d'entrer le numéro de partie et son nom de joueur.
+
+Bon jeu !
