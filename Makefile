@@ -1,5 +1,5 @@
 CC=gcc
-OPTS=-Wall -Wextra -lpthread -I./includes -lpthread
+OPTS=-lpthread -I./includes -lpthread
 
 all: executables/serveur.exe executables/client.exe
 

@@ -32,7 +32,7 @@ int main()
 
     // On demande la clef à l'utilisateur
     key_t clef;
-    printf("Quelle est la clef de la bal ?\n");
+    printf("Quelle est la clef de la partie ?\n");
     scanf("%d", &clef);
 
     // Création de la bal

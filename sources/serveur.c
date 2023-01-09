@@ -43,7 +43,7 @@ int main()
     assert(id_bal != -1);
 
     // On affiche la clé de la bal
-    printf("Clef de la boite aux lettres : %d\n", clef);
+    printf("Clef de la partie : %d\n", clef);
 
     // On lock une première fois le mutex
     pthread_mutex_lock(&mutex_partie_pleine);
@@ -153,7 +153,6 @@ void *gerer_connexions(void *liste_clients)
 {
     liste_clients_t *l = (liste_clients_t *)liste_clients;
     int resLec;
-    int nbJoueurs = 0;
     while (1)
     {
         resLec = lire_demande_connexion(creer_bal(generer_clef_bal()), l);
@@ -161,10 +160,11 @@ void *gerer_connexions(void *liste_clients)
 
         printf("Connexion réussie !\n");
 
-        nbJoueurs++;
-
-        if (nbJoueurs == MAX_CLIENTS)
+        if (l->nb_clients == MAX_CLIENTS)
+        {
             pthread_mutex_unlock(&mutex_partie_pleine);
+            pthread_exit(0);            
+        }
 
         afficher_liste_clients(liste_clients);
     }
